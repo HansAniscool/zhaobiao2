@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="crawler-page">
+    <div class="page-header">
+        <h1>{{ task.name }}</h1>
+        <span class="status-badge status-{{ task.status }}">{{ task.status }}</span>
+    </div>
+    
+    <div class="task-detail">
+        <div class="detail-section">
+            <h3>任务配置</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="label">目标网站</span>
+                    <span class="value"><a href="{{ task.website }}" target="_blank">{{ task.website }}</a></span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">关键词</span>
+                    <span class="value">{{ task.keywords or '无' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">分类</span>
+                    <span class="value">{{ task.category or '不限' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">执行间隔</span>
+                    <span class="value">{{ task.crawl_interval }} 秒</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="detail-section">
+            <h3>执行统计</h3>
+            <div class="stats-row">
+                <div class="stat-box">
+                    <span class="stat-num">{{ task.total_crawled }}</span>
+                    <span class="stat-desc">总采集数</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-num">{{ task.success_count }}</span>
+                    <span class="stat-desc">成功</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-num">{{ task.error_count }}</span>
+                    <span class="stat-desc">失败</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-num">{{ "%.1f"|format((task.success_count / task.total_crawled * 100) if task.total_crawled > 0 else 0) }}%</span>
+                    <span class="stat-desc">成功率</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="detail-section">
+            <h3>执行时间</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="label">创建时间</span>
+                    <span class="value">{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">最后执行</span>
+                    <span class="value">{{ task.last_crawl_time.strftime('%Y-%m-%d %H:%M:%S') if task.last_crawl_time else '尚未执行' }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="label">下次执行</span>
+                    <span class="value">{{ task.next_crawl_time.strftime('%Y-%m-%d %H:%M:%S') if task.next_crawl_time else '-' }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-bar">
+            {% if task.status == 'running' %}
+            <form action="{{ url_for('crawler.stop_task', task_id=task.id) }}" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-warning">停止任务</button>
+            </form>
+            {% else %}
+            <form action="{{ url_for('crawler.start_task', task_id=task.id) }}" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-success">启动任务</button>
+            </form>
+            {% endif %}
+            
+            <form action="{{ url_for('crawler.run_now', task_id=task.id) }}" method="POST" class="inline-form">
+                <button type="submit" class="btn btn-primary">立即执行一次</button>
+            </form>
+            
+            <a href="{{ url_for('crawler.crawler_index') }}" class="btn btn-secondary">返回列表</a>
+        </div>
+    </div>
+    
+    <div class="history-section">
+        <h3>执行历史</h3>
+        {% if histories %}
+        <div class="history-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>开始时间</th>
+                        <th>结束时间</th>
+                        <th>状态</th>
+                        <th>发现</th>
+                        <th>新增</th>
+                        <th>跳过</th>
+                        <th>错误</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for history in histories %}
+                    <tr>
+                        <td>{{ history.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ history.end_time.strftime('%Y-%m-%d %H:%M:%S') if history.end_time else '-' }}</td>
+                        <td>
+                            <span class="status-badge status-{{ history.status }}">
+                                {{ '成功' if history.status == 'completed' else ('失败' if history.status == 'failed' else '运行中') }}
+                            </span>
+                        </td>
+                        <td>{{ history.items_found }}</td>
+                        <td>{{ history.items_added }}</td>
+                        <td>{{ history.items_skipped }}</td>
+                        <td>
+                            {% if history.error_message %}
+                            <span title="{{ history.error_message }}" class="error-text">查看</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="no-data">暂无执行记录</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

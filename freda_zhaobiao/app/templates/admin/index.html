@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <h1>系统管理</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_tenders }}</div>
+            <div class="stat-label">招标总数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ active_tenders }}</div>
+            <div class="stat-label">有效招标</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ today_tenders }}</div>
+            <div class="stat-label">今日新增</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_users }}</div>
+            <div class="stat-label">用户数</div>
+        </div>
+        <div class="stat-card stat-highlight">
+            <div class="stat-value">{{ total_websites }}</div>
+            <div class="stat-label">政府网站</div>
+        </div>
+        <div class="stat-card stat-highlight">
+            <div class="stat-value">{{ active_websites }}</div>
+            <div class="stat-label">有效网站</div>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h2>快捷操作</h2>
+        <div class="action-grid">
+            <a href="{{ url_for('admin.manage_tenders') }}" class="action-card">
+                <span class="action-icon">📋</span>
+                <span class="action-text">管理招标</span>
+            </a>
+            <a href="{{ url_for('admin.upload') }}" class="action-card">
+                <span class="action-icon">📤</span>
+                <span class="action-text">导入数据</span>
+            </a>
+            <a href="{{ url_for('admin.manage_websites') }}" class="action-card">
+                <span class="action-icon">🌐</span>
+                <span class="action-text">管理网站</span>
+            </a>
+            <a href="{{ url_for('admin.logs') }}" class="action-card">
+                <span class="action-icon">📝</span>
+                <span class="action-text">查看日志</span>
+            </a>
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h2>最近日志</h2>
+        <div class="log-list">
+            {% for log in recent_logs %}
+            <div class="log-item log-{{ log.level|lower }}">
+                <span class="log-time">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                <span class="log-level">[{{ log.level }}]</span>
+                <span class="log-message">{{ log.message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

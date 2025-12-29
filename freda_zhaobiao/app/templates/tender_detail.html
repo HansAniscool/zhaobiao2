@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="detail-page">
+    <div class="detail-header">
+        <h1>{{ tender.title }}</h1>
+        <div class="detail-meta">
+            {% if tender.category %}
+            <span class="meta-tag">{{ tender.category }}</span>
+            {% endif %}
+            {% if tender.status %}
+            <span class="meta-tag status-{{ tender.status }}">{{ tender.status }}</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="detail-info">
+        {% if tender.organization %}
+        <div class="info-row">
+            <span class="info-label">发布单位</span>
+            <span class="info-value">{{ tender.organization }}</span>
+        </div>
+        {% endif %}
+        
+        {% if tender.publish_date %}
+        <div class="info-row">
+            <span class="info-label">发布日期</span>
+            <span class="info-value">{{ tender.publish_date.strftime('%Y-%m-%d') }}</span>
+        </div>
+        {% endif %}
+        
+        {% if tender.location %}
+        <div class="info-row">
+            <span class="info-label">所在地区</span>
+            <span class="info-value">{{ tender.location }}</span>
+        </div>
+        {% endif %}
+        
+        {% if tender.source_website %}
+        <div class="info-row">
+            <span class="info-label">来源网站</span>
+            <span class="info-value">{{ tender.source_website }}</span>
+        </div>
+        {% endif %}
+        
+        {% if tender.view_count %}
+        <div class="info-row">
+            <span class="info-label">浏览次数</span>
+            <span class="info-value">{{ tender.view_count }}</span>
+        </div>
+        {% endif %}
+    </div>
+    
+    {% if tender.summary %}
+    <div class="detail-section">
+        <h2>摘要信息</h2>
+        <div class="summary-content">
+            {{ tender.summary }}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if tender.content %}
+    <div class="detail-section">
+        <h2>详细内容</h2>
+        <div class="content-content">
+            {{ tender.content }}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="detail-actions">
+        {% if tender.source_url %}
+        <a href="{{ tender.source_url }}" target="_blank" class="btn btn-primary">
+            🔗 访问原文
+        </a>
+        {% endif %}
+        
+        {% if current_user.is_authenticated %}
+        <form action="{{ url_for('tenders.add_favorite', tender_id=tender.id) }}" method="POST" class="favorite-form">
+            <button type="submit" class="btn {% if is_favorite %}btn-warning{% else %}btn-secondary{% endif %}">
+                {% if is_favorite %}⭐ 已收藏{% else %}☆ 收藏{% endif %}
+            </button>
+        </form>
+        
+        <a href="{{ url_for('tenders.export_data', q=tender.title[:50], format='excel') }}" class="btn btn-secondary">
+            📥 导出
+        </a>
+        {% endif %}
+    </div>
+    
+    <div class="back-link">
+        <a href="{{ url_for('tenders.search') }}">← 返回搜索</a>
+    </div>
+</div>
+{% endblock %}

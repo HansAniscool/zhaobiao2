@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>搜索历史</h1>
+    {% if histories.items %}
+    <form action="{{ url_for('tenders.clear_history') }}" method="POST" class="clear-form" onsubmit="return confirm('确定要清空所有搜索记录吗？');">
+        <button type="submit" class="btn btn-danger btn-sm">清空历史</button>
+    </form>
+    {% endif %}
+</div>
+
+{% if histories.items %}
+<div class="history-list">
+    {% for history in histories.items %}
+    <div class="history-item">
+        <div class="history-info">
+            <a href="{{ url_for('tenders.search', q=history.keywords) }}" class="history-keywords">
+                {{ history.keywords }}
+            </a>
+            <span class="history-meta">
+                {% if history.result_count > 0 %}
+                {{ history.result_count }} 条结果
+                {% else %}
+                暂无结果
+                {% endif %}
+                · {{ history.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </span>
+        </div>
+        <form action="{{ url_for('tenders.delete_history', history_id=history.id) }}" method="POST" class="delete-form" onsubmit="return confirm('确定要删除这条搜索记录吗？');">
+            <button type="submit" class="btn-icon" title="删除">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+
+{% if histories.pages > 1 %}
+<nav class="pagination-nav">
+    <ul class="pagination">
+        {% if histories.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('tenders.history', page=histories.prev_num) }}">上一页</a>
+        </li>
+        {% endif %}
+        
+        {% set total_pages = histories.pages %}
+        {% set current_page = histories.page %}
+        {% set delta = 2 %}
+        {% set range_start = [1, current_page - delta]|max %}
+        {% set range_end = [total_pages, current_page + delta]|min %}
+        
+        {% for page_num in range(range_start, range_end + 1) %}
+        <li class="page-item {% if page_num == histories.page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('tenders.history', page=page_num) }}">{{ page_num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if histories.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('tenders.history', page=histories.next_num) }}">下一页</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <h3>暂无搜索历史</h3>
+    <p>您还没有进行过任何搜索</p>
+    <a href="{{ url_for('tenders.search') }}" class="btn btn-primary">开始搜索</a>
+</div>
+{% endif %}
+
+<style>
+.clear-form {
+    margin-left: auto;
+}
+
+.delete-form {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: #6c757d;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.history-item {
+    position: relative;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.empty-state h3 {
+    color: #374151;
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    color: #6b7280;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <h1>招标信息管理</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('admin.export_tenders', status=status, category=category) }}" class="btn btn-success">导出Excel</a>
+            <a href="{{ url_for('admin.export_tenders', status=status, category=category, format='csv') }}" class="btn btn-secondary">导出CSV</a>
+        </div>
+    </div>
+    
+    <div class="filter-bar">
+        <a href="{{ url_for('admin.manage_tenders') }}" class="btn {% if not status %}btn-primary{% else %}btn-secondary{% endif %}">全部</a>
+        <a href="{{ url_for('admin.manage_tenders', status='active') }}" class="btn {% if status == 'active' %}btn-primary{% else %}btn-secondary{% endif %}">有效</a>
+        <a href="{{ url_for('admin.manage_tenders', status='inactive') }}" class="btn {% if status == 'inactive' %}btn-primary{% else %}btn-secondary{% endif %}">过期</a>
+        <span class="filter-divider"></span>
+        <a href="{{ url_for('admin.manage_tenders', category='工程') }}" class="btn {% if category == '工程' %}btn-primary{% else %}btn-secondary{% endif %}">工程类</a>
+        <a href="{{ url_for('admin.manage_tenders', category='货物') }}" class="btn {% if category == '货物' %}btn-primary{% else %}btn-secondary{% endif %}">货物类</a>
+        <a href="{{ url_for('admin.manage_tenders', category='服务') }}" class="btn {% if category == '服务' %}btn-primary{% else %}btn-secondary{% endif %}">服务类</a>
+        <span class="filter-divider"></span>
+        <a href="{{ url_for('admin.upload') }}" class="btn btn-success">+ 导入数据</a>
+    </div>
+    
+    {% if pagination.items %}
+    <div class="data-summary">
+        共 <strong>{{ pagination.total }}</strong> 条招标信息
+    </div>
+    <div class="data-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>标题</th>
+                    <th>发布单位</th>
+                    <th>发布日期</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tender in tenders %}
+                <tr>
+                    <td>{{ tender.id }}</td>
+                    <td>
+                        <a href="{{ url_for('tenders.tender_detail', tender_id=tender.id) }}" target="_blank">
+                            {{ tender.title[:50] }}{% if tender.title|length > 50 %}...{% endif %}
+                        </a>
+                    </td>
+                    <td>{{ tender.organization or '-' }}</td>
+                    <td>{{ tender.publish_date.strftime('%Y-%m-%d') if tender.publish_date else '-' }}</td>
+                    <td>
+                        <span class="status-badge status-{{ tender.status }}">{{ tender.status }}</span>
+                    </td>
+                    <td class="actions">
+                        <a href="{{ url_for('admin.edit_tender', tender_id=tender.id) }}" class="btn-link">编辑</a>
+                        <form action="{{ url_for('admin.delete_tender', tender_id=tender.id) }}" method="POST" class="inline-form" onsubmit="return confirm('确定要删除吗？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn-link text-danger">删除</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if pagination.pages > 1 %}
+    <div class="pagination">
+        {% for page in range(1, pagination.pages + 1) %}
+        {% if page == pagination.page %}
+        <span class="page-link active">{{ page }}</span>
+        {% else %}
+        <a href="{{ url_for('admin.manage_tenders', page=page, status=status) }}" class="page-link">{{ page }}</a>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+        <p>暂无招标信息</p>
+        <a href="{{ url_for('admin.upload') }}" class="btn btn-primary">导入数据</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h1>招标信息收集系统</h1>
+    <p>高效收集、整理各级政府发布的招标信息</p>
+    
+    <form action="{{ url_for('tenders.search') }}" method="GET" class="search-form">
+        <div class="search-box">
+            <input type="text" name="q" class="search-input" placeholder="输入关键词搜索招标信息...">
+            <button type="submit" class="search-btn">搜索</button>
+        </div>
+    </form>
+</div>
+
+<section class="section">
+    <div class="section-header">
+        <h2>最新招标信息</h2>
+        <a href="{{ url_for('tenders.search') }}" class="more-link">查看更多 →</a>
+    </div>
+    
+    {% if tenders %}
+    <div class="tender-list">
+        {% for tender in tenders %}
+        <div class="tender-card">
+            <div class="tender-header">
+                <a href="{{ url_for('tenders.tender_detail', tender_id=tender.id) }}" class="tender-title">
+                    {{ tender.title }}
+                </a>
+                {% if tender.category %}
+                <span class="tender-category">{{ tender.category }}</span>
+                {% endif %}
+            </div>
+            <div class="tender-meta">
+                {% if tender.organization %}
+                <span class="meta-item">🏢 {{ tender.organization }}</span>
+                {% endif %}
+                {% if tender.publish_date %}
+                <span class="meta-item">📅 {{ tender.publish_date.strftime('%Y-%m-%d') }}</span>
+                {% endif %}
+            </div>
+            {% if tender.summary %}
+            <p class="tender-summary">{{ tender.summary[:150] }}{% if tender.summary|length > 150 %}...{% endif %}</p>
+            {% endif %}
+            <div class="tender-footer">
+                {% if tender.source_url %}
+                <a href="{{ tender.source_url }}" target="_blank" class="source-link">查看原文 →</a>
+                {% endif %}
+                {% if current_user.is_authenticated %}
+                <button class="favorite-btn" data-tender-id="{{ tender.id }}">
+                    ⭐
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>暂无招标信息</p>
+        <a href="{{ url_for('tenders.search') }}" class="btn btn-primary">开始搜索</a>
+    </div>
+    {% endif %}
+</section>
+
+<section class="section">
+    <div class="section-header">
+        <h2>搜索历史</h2>
+        <a href="{{ url_for('tenders.search_history') }}" class="more-link">查看全部 →</a>
+    </div>
+    
+    {% if recent_history %}
+    <div class="history-list">
+        {% for history in recent_history %}
+        <div class="history-item">
+            <div class="history-info">
+                <a href="{{ url_for('tenders.search') }}?q={{ history.query }}&crawl=false" class="history-query">
+                    {{ history.query }}
+                </a>
+                <div class="history-meta">
+                    <span class="history-time">{{ history.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    <span class="history-count">找到 {{ history.result_count }} 条记录</span>
+                </div>
+            </div>
+            <div class="history-actions">
+                <a href="{{ url_for('tenders.search') }}?q={{ history.query }}&crawl=true" class="btn btn-secondary btn-sm">重新搜索</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>暂无搜索历史</p>
+        <a href="{{ url_for('tenders.search') }}" class="btn btn-primary">开始搜索</a>
+    </div>
+    {% endif %}
+</section>
+
+<section class="section features">
+    <h2>系统功能</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🔍</div>
+            <h3>智能搜索</h3>
+            <p>支持关键词搜索，快速定位目标招标信息</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📥</div>
+            <h3>批量导入</h3>
+            <p>支持Excel文件批量导入，方便数据迁移</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <h3>自动采集</h3>
+            <p>配置爬虫任务，自动采集政府网站招标信息</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">⭐</div>
+            <h3>收藏管理</h3>
+            <p>收藏重要招标信息，方便后续跟踪</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="crawler-page">
+    <div class="page-header">
+        <h1>创建爬虫任务</h1>
+    </div>
+    
+    <form method="POST" class="task-form">
+        <div class="form-group">
+            <label class="form-label">任务名称 *</label>
+            <input type="text" name="name" class="form-input" placeholder="给任务起个名字" required>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">目标网站 URL *</label>
+            <input type="url" name="website" class="form-input" placeholder="https://www.example.com" required>
+            <p class="form-hint">支持：中国采购与招标网、中国政府采购网、中国招标投标公共服务平台等</p>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">搜索关键词</label>
+            <input type="text" name="keywords" class="form-input" placeholder="多个关键词用逗号分隔">
+            <p class="form-hint">例如：工程,采购,招标</p>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">招标分类</label>
+                <select name="category" class="form-input">
+                    <option value="">不限</option>
+                    <option value="工程">工程类</option>
+                    <option value="货物">货物类</option>
+                    <option value="服务">服务类</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">地区</label>
+                <input type="text" name="region" class="form-input" placeholder="如：全国、北京、上海">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">执行间隔（秒）</label>
+            <input type="number" name="crawl_interval" class="form-input" value="3600" min="300">
+            <p class="form-hint">建议不少于300秒（5分钟），以避免被目标网站封禁</p>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" name="create" class="btn btn-primary">创建任务</button>
+            <button type="submit" name="start_now" class="btn btn-success">创建并立即启动</button>
+            <a href="{{ url_for('crawler.crawler_index') }}" class="btn btn-secondary">取消</a>
+        </div>
+    </form>
+    
+    <div class="task-guide">
+        <h3>使用说明</h3>
+        <ul>
+            <li>创建任务后，可以设置定时自动执行</li>
+            <li>建议首次使用"立即执行"测试任务配置</li>
+            <li>系统会自动去重，已采集的信息不会重复入库</li>
+            <li>可以同时运行多个爬虫任务</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

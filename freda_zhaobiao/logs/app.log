@@ -1,0 +1,51 @@
+INFO:sqlalchemy.engine.Engine:BEGIN (implicit)
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("user")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("tender")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("tender_fingerprint")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("crawler_task")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("favorite")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("search_history")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("system_log")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("crawl_history")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("government_website")
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+INFO:sqlalchemy.engine.Engine:COMMIT
+INFO:sqlalchemy.engine.Engine:BEGIN (implicit)
+INFO:sqlalchemy.engine.Engine:SELECT user.id AS user_id, user.username AS user_username, user.email AS user_email, user.password_hash AS user_password_hash, user.is_admin AS user_is_admin, user.created_at AS user_created_at, user.last_login AS user_last_login 
+FROM user 
+WHERE user.username = ?
+ LIMIT ? OFFSET ?
+INFO:sqlalchemy.engine.Engine:[generated in 0.00009s] ('admin', 1, 0)
+INFO:sqlalchemy.engine.Engine:INSERT INTO system_log (level, module, message, traceback, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?)
+INFO:sqlalchemy.engine.Engine:[generated in 0.00011s] ('INFO', 'app', 'Starting application on port 5001', None, None, '2025-12-28 13:29:11.884328')
+INFO:sqlalchemy.engine.Engine:COMMIT
+INFO:tender_app:Starting application on port 5001
+应用已启动: http://0.0.0.0:5001
+按 Ctrl+C 停止服务
+ * Serving Flask app 'app'
+ * Debug mode: off
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+2025-12-28 22:10:34,763 - tender_app - INFO - Starting application on port 5001
+2025-12-28 22:12:45,878 - tender_app - INFO - Starting application on port 5001
+2025-12-28 22:33:06,797 - tender_app - INFO - Starting application on port 5001
+2025-12-28 22:51:24,462 - tender_app - INFO - Starting application on port 5001
+2025-12-28 22:53:26,541 - tender_app - INFO - Starting application on port 5001
+2025-12-28 23:20:55,183 - tender_app - INFO - Starting application on port 5001
+2025-12-29 23:15:43,656 - tender_app - INFO - Starting application on port 5001
+2025-12-29 23:16:10,837 - tender_app - ERROR - Internal server error: 500 Internal Server Error: The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.
+2025-12-29 23:16:18,839 - tender_app - ERROR - Internal server error: 500 Internal Server Error: The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.
+2025-12-29 23:17:09,316 - tender_app - INFO - Starting application on port 5001
+2025-12-29 23:17:27,359 - tender_app - ERROR - Internal server error: 500 Internal Server Error: The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.
+2025-12-29 23:18:34,263 - tender_app - INFO - Starting application on port 5001
+2025-12-29 23:20:00,356 - tender_app - INFO - Starting application on port 5000
+2025-12-29 23:23:52,610 - tender_app - INFO - Starting application on port 5000
+2025-12-29 23:30:51,843 - tender_app - INFO - Starting application on port 5000

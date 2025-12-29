@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <h1>导入政府网站</h1>
+    </div>
+    
+    <div class="upload-card">
+        <div class="upload-info">
+            <h3>支持的文件格式</h3>
+            <ul>
+                <li>Excel 文件 (.xlsx, .xls)</li>
+                <li>CSV 文件 (.csv)</li>
+            </ul>
+            <p>文件大小限制: 16MB</p>
+        </div>
+        
+        <form method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" name="file" id="fileInput" accept=".xlsx,.xls,.csv" required>
+                <div class="upload-prompt">
+                    <span class="upload-icon">🌐</span>
+                    <p>点击或拖拽文件到此处上传</p>
+                    <p class="upload-hint">支持 Excel 和 CSV 格式</p>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">开始导入</button>
+            </div>
+        </form>
+        
+        <div class="upload-guide">
+            <h3>数据格式要求</h3>
+            <p>文件应包含以下列（支持自动识别）：</p>
+            <ul>
+                <li><strong>名称/网站名称</strong> - 政府网站名称（必填）</li>
+                <li><strong>网址/网站地址</strong> - 政府网站URL地址（必填）</li>
+                <li><strong>类别/类型</strong> - 网站分类</li>
+                <li><strong>地区/省份/城市</strong> - 所在地区</li>
+                <li><strong>级别/层级</strong> - 行政级别（省级/市级/县级等）</li>
+                <li><strong>描述/备注</strong> - 网站描述信息</li>
+            </ul>
+            
+            <h4>示例数据格式</h4>
+            <div class="example-table">
+                <table>
+                    <tr>
+                        <th>名称</th>
+                        <th>网址</th>
+                        <th>类别</th>
+                        <th>地区</th>
+                        <th>级别</th>
+                    </tr>
+                    <tr>
+                        <td>XX省政府采购网</td>
+                        <td>http://www.ccgp-xx.gov.cn</td>
+                        <td>政府采购</td>
+                        <td>XX省</td>
+                        <td>省级</td>
+                    </tr>
+                    <tr>
+                        <td>XX市公共资源交易中心</td>
+                        <td>http://ggzy.xx.gov.cn</td>
+                        <td>公共资源</td>
+                        <td>XX市</td>
+                        <td>市级</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

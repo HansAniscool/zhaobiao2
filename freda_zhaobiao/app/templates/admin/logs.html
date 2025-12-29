@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <h1>系统日志</h1>
+    </div>
+    
+    <div class="filter-bar">
+        <a href="{{ url_for('admin.view_logs') }}" class="btn {% if not level %}btn-primary{% else %}btn-secondary{% endif %}">全部</a>
+        <a href="{{ url_for('admin.view_logs', level='INFO') }}" class="btn {% if level == 'INFO' %}btn-primary{% else %}btn-secondary{% endif %}">INFO</a>
+        <a href="{{ url_for('admin.view_logs', level='WARNING') }}" class="btn {% if level == 'WARNING' %}btn-primary{% else %}btn-secondary{% endif %}">WARNING</a>
+        <a href="{{ url_for('admin.view_logs', level='ERROR') }}" class="btn {% if level == 'ERROR' %}btn-primary{% else %}btn-secondary{% endif %}">ERROR</a>
+        
+        <form action="{{ url_for('admin.cleanup') }}" method="POST" class="inline-form" onsubmit="return confirm('确定要清理30天前的日志吗？');">
+            <button type="submit" class="btn btn-warning">清理旧日志</button>
+        </form>
+    </div>
+    
+    {% if logs %}
+    <div class="log-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>级别</th>
+                    <th>模块</th>
+                    <th>消息</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr class="log-row log-{{ log.level|lower }}">
+                    <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>
+                        <span class="log-level-badge level-{{ log.level|lower }}">{{ log.level }}</span>
+                    </td>
+                    <td>{{ log.module or '-' }}</td>
+                    <td>
+                        <div class="log-message">{{ log.message }}</div>
+                        {% if log.traceback %}
+                        <pre class="log-traceback">{{ log.traceback }}</pre>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if pagination.pages > 1 %}
+    <div class="pagination">
+        {% for page in range(1, pagination.pages + 1) %}
+        {% if page == pagination.page %}
+        <span class="page-link active">{{ page }}</span>
+        {% else %}
+        <a href="{{ url_for('admin.view_logs', page=page, level=level) }}" class="page-link">{{ page }}</a>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+        <p>暂无日志记录</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>个人信息</h1>
+</div>
+
+<div class="profile-card">
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-input") }}
+            {% for error in form.username.errors %}
+            <span class="error">{{ error }}</span>
+            {% endfor %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-input") }}
+            {% for error in form.email.errors %}
+            <span class="error">{{ error }}</span>
+            {% endfor %}
+        </div>
+        
+        <div class="form-actions">
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+    
+    <div class="profile-info">
+        <h3>账号信息</h3>
+        <p>注册时间: {{ current_user.created_at.strftime('%Y-%m-%d') }}</p>
+        {% if current_user.last_login %}
+        <p>最后登录: {{ current_user.last_login.strftime('%Y-%m-%d %H:%M') }}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

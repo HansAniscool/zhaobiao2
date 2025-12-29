@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <h1>编辑招标信息</h1>
+    </div>
+    
+    <form method="POST" class="edit-form">
+        <div class="form-group">
+            <label class="form-label">标题</label>
+            <input type="text" name="title" value="{{ tender.title }}" class="form-input" required>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">发布单位</label>
+                <input type="text" name="organization" value="{{ tender.organization or '' }}" class="form-input">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">发布日期</label>
+                <input type="date" name="publish_date" value="{{ tender.publish_date.strftime('%Y-%m-%d') if tender.publish_date else '' }}" class="form-input">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">分类</label>
+                <select name="category" class="form-input">
+                    <option value="">请选择</option>
+                    <option value="工程" {% if tender.category == '工程' %}selected{% endif %}>工程类</option>
+                    <option value="货物" {% if tender.category == '货物' %}selected{% endif %}>货物类</option>
+                    <option value="服务" {% if tender.category == '服务' %}selected{% endif %}>服务类</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">状态</label>
+                <select name="status" class="form-input">
+                    <option value="active" {% if tender.status == 'active' %}selected{% endif %}>有效</option>
+                    <option value="inactive" {% if tender.status == 'inactive' %}selected{% endif %}>过期</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">摘要</label>
+            <textarea name="summary" class="form-textarea" rows="4">{{ tender.summary or '' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">详细内容</label>
+            <textarea name="content" class="form-textarea" rows="8">{{ tender.content or '' }}</textarea>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">保存修改</button>
+            <a href="{{ url_for('admin.manage_tenders') }}" class="btn btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

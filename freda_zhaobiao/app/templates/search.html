@@ -1,0 +1,763 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="search-page">
+    <button id="show-tasks-btn" class="show-tasks-btn" style="display: none;" onclick="showTasksPanel()">
+        🔄 后台任务<span id="tasks-count-badge" class="badge" style="display: none;">0</span>
+    </button>
+
+    <div id="background-tasks-panel" class="background-tasks-panel" style="display: none;">
+        <div class="tasks-panel-header">
+            <h3>🔄 后台爬虫任务监控</h3>
+            <button onclick="closeTasksPanel()" class="close-panel-btn">×</button>
+        </div>
+        <div id="tasks-list" class="tasks-list"></div>
+    </div>
+
+    <div class="search-header">
+        <h1>招标信息搜索</h1>
+        
+        <form action="{{ url_for('tenders.search') }}" method="GET" class="search-form">
+            <input type="hidden" name="crawl" value="true">
+            <div class="search-box-large">
+                <input type="text" name="q" value="{{ query }}" class="search-input" placeholder="输入关键词...">
+                <button type="submit" class="search-btn">搜索</button>
+            </div>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>分类</label>
+                    <select name="category" class="filter-select">
+                        <option value="">全部</option>
+                        <option value="工程" {% if category == '工程' %}selected{% endif %}>工程类</option>
+                        <option value="货物" {% if category == '货物' %}selected{% endif %}>货物类</option>
+                        <option value="服务" {% if category == '服务' %}selected{% endif %}>服务类</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>日期范围</label>
+                    <div class="date-range">
+                        <input type="date" name="date_from" value="{{ date_from }}" class="date-input">
+                        <span>至</span>
+                        <input type="date" name="date_to" value="{{ date_to }}" class="date-input">
+                    </div>
+                </div>
+                
+                <div class="filter-group">
+                    <label>排序</label>
+                    <select name="sort" class="filter-select">
+                        <option value="date" {% if sort == 'date' %}selected{% endif %}>按时间</option>
+                        <option value="relevance">按相关性</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-secondary">应用筛选</button>
+            </div>
+        </form>
+    </div>
+    
+    {% if crawling and task_id %}
+    <div id="crawl-progress-container" class="crawl-progress-container">
+        <div class="progress-header">
+            <h3>正在从政府网站搜索招标信息</h3>
+            <p id="progress-message" class="progress-message">正在初始化...</p>
+        </div>
+        
+        <div class="progress-percentage" id="progress-percentage">0%</div>
+        
+        <div class="progress-bar-wrapper">
+            <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+        </div>
+        
+        <div class="progress-stats">
+            <span id="progress-completed">0</span> / <span id="progress-total">0</span> 个网站
+        </div>
+        
+        <div class="time-stats">
+            <div class="time-item">
+                <span class="time-label">已用时间</span>
+                <span id="elapsed-time" class="time-value">--</span>
+            </div>
+            <div class="time-item">
+                <span class="time-label">预计剩余</span>
+                <span id="estimated-time" class="time-value">--</span>
+            </div>
+            <div class="time-item">
+                <span class="time-label">预计完成</span>
+                <span id="completion-time" class="time-value">--</span>
+            </div>
+        </div>
+        
+        <div id="crawl-actions" class="crawl-actions" style="display: none;">
+            <button id="preview-btn" onclick="previewCurrentTask()" class="btn btn-preview" disabled>
+                <span class="btn-icon">👁️</span>
+                <span class="btn-text">预览结果</span>
+            </button>
+            <button id="download-btn" onclick="downloadCurrentTask()" class="btn btn-download" disabled>
+                <span class="btn-icon">📥</span>
+                <span class="btn-text">下载Excel</span>
+            </button>
+        </div>
+        
+        <div id="current-website" class="current-website" style="display: none;">
+            <div class="current-website-label">正在爬取：</div>
+            <div id="current-website-name" class="current-website-name"></div>
+            <div id="current-website-progress" class="current-website-progress"></div>
+            <div id="current-website-time" class="current-website-time"></div>
+        </div>
+        
+        <div id="website-list" class="website-list"></div>
+    </div>
+    
+    <script>
+    const taskId = '{{ task_id }}';
+    let pollingInterval = null;
+    
+    function updateWebsiteStatus(websites) {
+        const container = document.getElementById('website-list');
+        if (!container) return;
+        
+        let html = '';
+        if (websites && websites.length > 0) {
+            websites.forEach(site => {
+                let statusClass = '';
+                let statusIcon = '';
+                
+                switch(site.status) {
+                    case 'pending':
+                        statusClass = 'status-pending';
+                        statusIcon = '等待';
+                        break;
+                    case 'running':
+                        statusClass = 'status-running';
+                        statusIcon = '爬取中';
+                        break;
+                    case 'completed':
+                        statusClass = 'status-completed';
+                        statusIcon = '完成';
+                        break;
+                    case 'failed':
+                        statusClass = 'status-failed';
+                        statusIcon = '失败';
+                        break;
+                }
+                
+                let foundText = '';
+                if (site.found !== undefined && site.found !== null) {
+                    foundText = ` (找到 ${site.found} 条)`;
+                }
+                
+                html += `
+                    <div class="website-item ${statusClass}">
+                        <span class="status-icon">${statusIcon}</span>
+                        <span class="website-name">${site.name}</span>
+                        <span class="website-url">${site.url}</span>
+                        <span class="website-status">${statusClass}${foundText}</span>
+                    </div>
+                `;
+            });
+        }
+        container.innerHTML = html;
+    }
+    
+    function updateTenderResults(results) {
+        const container = document.getElementById('tender-results');
+        const countEl = document.getElementById('results-count');
+        const resultsContainer = document.getElementById('crawl-results-container');
+        
+        if (!container || !countEl || !resultsContainer) return;
+        
+        countEl.textContent = results.length;
+        
+        if (results.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>未找到相关招标信息，请尝试其他关键词</p></div>';
+        } else {
+            let html = '';
+            results.forEach(item => {
+                html += `
+                    <div class="tender-card">
+                        <div class="tender-header">
+                            <span class="tender-title">${item.title || '无标题'}</span>
+                            ${item.category ? `<span class="tender-category">${item.category}</span>` : ''}
+                        </div>
+                        <div class="tender-meta">
+                            ${item.organization ? `<span class="meta-item">${item.organization}</span>` : ''}
+                            ${item.publish_date ? `<span class="meta-item">${item.publish_date}</span>` : ''}
+                            ${item.source_website ? `<span class="meta-item">${item.source_website}</span>` : ''}
+                        </div>
+                        ${item.summary ? `<p class="tender-summary">${item.summary.length > 200 ? item.summary.substring(0, 200) + '...' : item.summary}</p>` : ''}
+                        <div class="tender-footer">
+                            ${item.source_url ? `<a href="${item.source_url}" target="_blank" class="source-link">查看原文</a>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        
+        resultsContainer.style.display = 'block';
+        document.getElementById('crawl-progress-container').style.display = 'none';
+    }
+    
+    function formatTime(seconds) {
+        if (!seconds || seconds <= 0) return '--';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        if (mins > 0) {
+            return mins + '分' + secs + '秒';
+        }
+        return secs + '秒';
+    }
+    
+    function pollProgress() {
+        fetch('/api/crawl/progress/' + taskId)
+            .then(response => {
+                return response.json().then(data => {
+                    return { status: response.status, data: data };
+                });
+            })
+            .then(result => {
+                const data = result.data;
+                
+                if (result.status === 404 && data.status === 'not_found') {
+                    const messageEl = document.getElementById('progress-message');
+                    if (messageEl) messageEl.textContent = '任务未找到，请重新搜索';
+                    stopPolling();
+                    return;
+                }
+                
+                if (!result.status || result.status >= 400) {
+                    console.log('进度API返回错误状态:', result.status, data);
+                    return; // 静默处理错误，不抛出异常
+                }
+                const messageEl = document.getElementById('progress-message');
+                const progressBar = document.getElementById('progress-bar');
+                const progressPercentageEl = document.getElementById('progress-percentage');
+                const completedEl = document.getElementById('progress-completed');
+                const totalEl = document.getElementById('progress-total');
+                const elapsedEl = document.getElementById('elapsed-time');
+                const estimatedEl = document.getElementById('estimated-time');
+                const completionTimeEl = document.getElementById('completion-time');
+                const currentWebsiteEl = document.getElementById('current-website');
+                const currentWebsiteNameEl = document.getElementById('current-website-name');
+                const currentWebsiteProgressEl = document.getElementById('current-website-progress');
+                const currentWebsiteTimeEl = document.getElementById('current-website-time');
+                
+                if (data.status === 'not_found') {
+                    if (messageEl) messageEl.textContent = '任务未找到，请重新搜索';
+                    stopPolling();
+                    return;
+                }
+                
+                if (messageEl) {
+                    messageEl.textContent = data.message || '处理中...';
+                }
+                
+                if (progressBar && data.total > 0) {
+                    const percentage = (data.completed / data.total) * 100;
+                    progressBar.style.width = percentage + '%';
+                }
+                
+                if (progressPercentageEl) {
+                    progressPercentageEl.textContent = (data.progress_percentage || 0) + '%';
+                }
+                
+                if (completedEl) completedEl.textContent = data.completed || 0;
+                if (totalEl) totalEl.textContent = data.total || 0;
+                if (elapsedEl) elapsedEl.textContent = data.elapsed_time || '--';
+                if (estimatedEl) {
+                    if (data.status === 'completed') {
+                        estimatedEl.textContent = '已完成';
+                        estimatedEl.classList.add('completed-text');
+                    } else {
+                        estimatedEl.textContent = data.estimated_remaining || '--';
+                        estimatedEl.classList.remove('completed-text');
+                    }
+                }
+                if (completionTimeEl) completionTimeEl.textContent = data.estimated_completion || '--';
+                
+                if (data.current_website) {
+                    currentWebsiteEl.style.display = 'flex';
+                    const websiteName = data.current_website.name || '未知网站';
+                    const websiteUrl = data.current_website.url || '#';
+                    currentWebsiteNameEl.innerHTML = '<a href="' + websiteUrl + '" target="_blank" class="current-website-link" title="' + websiteUrl + '">' + websiteName + '</a>';
+                    currentWebsiteProgressEl.textContent = '(' + (data.current_website.progress || 0) + '/' + (data.current_website.total || 0) + ')';
+                    if (data.current_website.start_time) {
+                        const startTime = new Date(data.current_website.start_time);
+                        const now = new Date();
+                        const elapsed = Math.floor((now - startTime) / 1000);
+                        const elapsedStr = formatTime(elapsed);
+                        currentWebsiteTimeEl.textContent = ' 本网站已爬取 ' + elapsedStr;
+                        currentWebsiteTimeEl.style.display = 'block';
+                    } else {
+                        currentWebsiteTimeEl.style.display = 'none';
+                    }
+                } else {
+                    currentWebsiteEl.style.display = 'none';
+                }
+                
+                if (data.websites) {
+                    updateWebsiteStatus(data.websites);
+                }
+                
+                if (data.status === 'completed') {
+                    stopPolling();
+                    currentWebsiteEl.style.display = 'none';
+                    
+                    const progressContainer = document.getElementById('crawl-progress-container');
+                    if (progressContainer) {
+                        const savedCount = data.saved_count || 0;
+                        const totalInDb = data.total_in_db || 0;
+                        const skippedCount = data.skipped_count || 0;
+                        const resultsCount = data.results ? data.results.length : 0;
+                        
+                        let completionHtml = `
+                            <div class="crawl-completion">
+                                <div class="completion-icon">✅</div>
+                                <h3>爬取完成！</h3>
+                                <div class="completion-stats">
+                                    <div class="completion-stat">
+                                        <span class="stat-number">${resultsCount}</span>
+                                        <span class="stat-label">找到结果</span>
+                                    </div>
+                                    <div class="completion-stat">
+                                        <span class="stat-number">${savedCount}</span>
+                                        <span class="stat-label">保存到数据库</span>
+                                    </div>
+                                    <div class="completion-stat">
+                                        <span class="stat-number">${skippedCount}</span>
+                                        <span class="stat-label">重复跳过</span>
+                                    </div>
+                                    <div class="completion-stat">
+                                        <span class="stat-number">${totalInDb}</span>
+                                        <span class="stat-label">数据库总数</span>
+                                    </div>
+                                </div>
+                                <div class="completion-actions">
+                                    <a href="#" class="btn btn-primary" id="save-all-btn" onclick="saveAllResults(event)">一键保存全部</a>
+                                    <a href="${data.query ? '/search?q=' + encodeURIComponent(data.query) + '&crawl=false' : '/search?crawl=false'}" class="btn btn-primary">查看数据库结果</a>
+                                    <a href="${data.query ? '/export?q=' + encodeURIComponent(data.query) + '&format=excel' : '/export?format=excel'}" class="btn btn-success">导出Excel</a>
+                                    <a href="${data.query ? '/export?q=' + encodeURIComponent(data.query) + '&format=csv' : '/export?format=csv'}" class="btn btn-secondary">导出CSV</a>
+                                </div>
+                            </div>
+                        `;
+                        
+                        if (data.results && data.results.length > 0) {
+                            completionHtml += '<div class="crawl-results-preview"><h4>本次搜索结果预览：</h4>';
+                            data.results.forEach(item => {
+                                completionHtml += `
+                                    <div class="tender-card">
+                                        <div class="tender-header">
+                                            <span class="tender-title">${item.title || '无标题'}</span>
+                                            ${item.category ? `<span class="tender-category">${item.category}</span>` : ''}
+                                        </div>
+                                        <div class="tender-meta">
+                                            ${item.organization ? `<span class="meta-item">${item.organization}</span>` : ''}
+                                            ${item.publish_date ? `<span class="meta-item">${item.publish_date}</span>` : ''}
+                                            ${item.source_website ? `<span class="meta-item">${item.source_website}</span>` : ''}
+                                        </div>
+                                        ${item.summary ? `<p class="tender-summary">${item.summary.length > 200 ? item.summary.substring(0, 200) + '...' : item.summary}</p>` : ''}
+                                        <div class="tender-footer">
+                                            ${item.source_url ? `<a href="${item.source_url}" target="_blank" class="source-link">查看原文</a>` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            completionHtml += '</div>';
+                        }
+                        
+                        progressContainer.innerHTML = completionHtml;
+                    }
+                } else if (data.status === 'failed') {
+                    stopPolling();
+                    currentWebsiteEl.style.display = 'none';
+                    if (messageEl) {
+                        messageEl.textContent = '爬取失败: ' + (data.message || '未知错误');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('获取进度失败:', error);
+                setTimeout(pollProgress, 2000);
+            });
+    }
+    
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+    
+    function previewCurrentTask() {
+        if (!taskId) return;
+        
+        const previewBtn = document.getElementById('preview-btn');
+        if (previewBtn && previewBtn.disabled) return;
+        
+        openPreviewModal(taskId);
+    }
+    
+    function downloadCurrentTask() {
+        if (!taskId) return;
+        
+        const downloadBtn = document.getElementById('download-btn');
+        if (downloadBtn && downloadBtn.disabled) {
+            alert('暂无数据可下载，请等待爬取完成');
+            return;
+        }
+        
+        const link = document.createElement('a');
+        link.href = '/crawl/download/' + taskId;
+        link.download = '';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    
+    function openPreviewModal(taskId) {
+        const modal = document.getElementById('preview-modal');
+        const content = document.getElementById('preview-content');
+        const downloadBtn = document.getElementById('modal-download-btn');
+        
+        if (!modal || !content) {
+            alert('预览功能不可用');
+            return;
+        }
+        
+        modal.style.display = 'block';
+        content.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>正在加载预览数据...</p>
+            </div>
+        `;
+        if (downloadBtn) downloadBtn.style.display = 'none';
+        
+        fetch('/crawl/preview/' + taskId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.has_results) {
+                    content.innerHTML = data.html;
+                    if (downloadBtn) downloadBtn.style.display = 'inline-flex';
+                } else {
+                    content.innerHTML = `
+                        <div class="preview-empty">
+                            <div class="empty-icon">📭</div>
+                            <p>暂无爬取结果</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('预览加载失败:', error);
+                content.innerHTML = `
+                    <div class="preview-error">
+                        <div class="error-icon">❌</div>
+                        <p>网络错误，加载失败</p>
+                    </div>
+                `;
+            });
+    }
+    
+    function closePreviewModal() {
+        const modal = document.getElementById('preview-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    function downloadFromModal() {
+        if (taskId) {
+            const link = document.createElement('a');
+            link.href = '/crawl/download/' + taskId;
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+    
+    window.onclick = function(event) {
+        const modal = document.getElementById('preview-modal');
+        if (event.target === modal) {
+            closePreviewModal();
+        }
+    }
+    
+    function saveAllResults(event) {
+        event.preventDefault();
+        const saveBtn = document.getElementById('save-all-btn');
+        if (!saveBtn || !taskId) return;
+        
+        saveBtn.textContent = '保存中...';
+        saveBtn.disabled = true;
+        
+        fetch('/save-crawl-results', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ task_id: taskId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                saveBtn.textContent = '已保存';
+                saveBtn.classList.remove('btn-primary');
+                saveBtn.classList.add('btn-success');
+                
+                const progressContainer = document.getElementById('crawl-progress-container');
+                if (progressContainer) {
+                    const statsEl = progressContainer.querySelector('.completion-stats');
+                    if (statsEl) {
+                        const savedStat = statsEl.querySelector('.completion-stat:nth-child(2) .stat-number');
+                        const skippedStat = statsEl.querySelector('.completion-stat:nth-child(3) .stat-number');
+                        const totalStat = statsEl.querySelector('.completion-stat:nth-child(4) .stat-number');
+                        
+                        if (savedStat) savedStat.textContent = data.saved_count;
+                        if (skippedStat) skippedStat.textContent = data.skipped_count;
+                        if (totalStat) totalStat.textContent = data.total_in_db;
+                    }
+                }
+                
+                alert(data.message);
+            } else {
+                saveBtn.textContent = '保存失败';
+                saveBtn.disabled = false;
+                alert(data.message || '保存失败，请重试');
+            }
+        })
+        .catch(error => {
+            console.error('保存失败:', error);
+            saveBtn.textContent = '保存失败';
+            saveBtn.disabled = false;
+            alert('保存失败，请重试');
+        });
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            if (taskId && taskId !== 'None' && taskId !== '') {
+                pollingInterval = setInterval(pollProgress, 1000);
+                pollProgress();
+            }
+            startTasksMonitoring();
+        });
+    } else {
+        if (taskId && taskId !== 'None' && taskId !== '') {
+            setTimeout(function() {
+                pollingInterval = setInterval(pollProgress, 1000);
+                pollProgress();
+            }, 500);
+        }
+        startTasksMonitoring();
+    }
+    
+    let tasksPollingInterval = null;
+    
+    function startTasksMonitoring() {
+        tasksPollingInterval = setInterval(fetchAllTasks, 2000);
+        fetchAllTasks();
+    }
+    
+    function fetchAllTasks() {
+        fetch('/crawl/tasks')
+            .then(response => response.json())
+            .then(data => {
+                updateTasksUI(data);
+            })
+            .catch(error => {
+                console.error('获取后台任务失败:', error);
+            });
+    }
+    
+    function updateTasksUI(data) {
+        const showBtn = document.getElementById('show-tasks-btn');
+        const badge = document.getElementById('tasks-count-badge');
+        const panel = document.getElementById('background-tasks-panel');
+        const tasksList = document.getElementById('tasks-list');
+        
+        if (!data || !data.tasks || data.count === 0) {
+            if (showBtn) showBtn.style.display = 'none';
+            if (panel) panel.style.display = 'none';
+            return;
+        }
+        
+        if (showBtn) {
+            showBtn.style.display = 'block';
+            badge.textContent = data.count;
+            badge.style.display = 'inline-block';
+        }
+        
+        if (!panel || panel.style.display === 'none') {
+            return;
+        }
+        
+        let html = '';
+        data.tasks.forEach(task => {
+            const statusClass = task.status || 'pending';
+            const statusText = {
+                'pending': '等待中',
+                'running': '爬取中',
+                'completed': '已完成',
+                'failed': '失败'
+            }[statusClass] || statusClass;
+            
+            const percentage = task.progress_percentage || 0;
+            
+            html += `
+                <div class="task-item">
+                    <div class="task-item-header">
+                        <span class="task-id">${task.task_id.substring(0, 8)}...</span>
+                        <span class="task-status ${statusClass}">${statusText}</span>
+                    </div>
+                    
+                    ${task.message ? `<div class="task-message">${task.message}</div>` : ''}
+                    
+                    <div class="task-progress">
+                        <div class="task-progress-bar">
+                            <div class="task-progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="task-progress-text">
+                            <span>${task.completed}/${task.total} 个网站</span>
+                            <span>${percentage}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="task-stats">
+                        <span class="task-stat">
+                            ⏱️ 已用: <span class="task-stat-value">${task.elapsed_time || '--'}</span>
+                        </span>
+                        <span class="task-stat">
+                            ⏳ ${task.status === 'completed' ? '状态:' : '剩余:'} 
+                            <span class="task-stat-value ${task.status === 'completed' ? 'completed-text' : ''}">
+                                ${task.status === 'completed' ? '已完成' : (task.estimated_remaining || '--')}
+                            </span>
+                        </span>
+                        <span class="task-stat">
+                            📊 结果: <span class="task-stat-value">${task.results_count}</span>
+                        </span>
+                    </div>
+                    
+                    ${task.current_website ? `
+                        <div class="task-current-website">
+                            <span>🌐</span>
+                            <span class="task-current-website-name">${task.current_website.name || '未知网站'}</span>
+                            <span class="task-website-progress">(${task.current_website.progress}/${task.current_website.total})</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        if (tasksList) {
+            tasksList.innerHTML = html;
+        }
+    }
+    
+    function showTasksPanel() {
+        const panel = document.getElementById('background-tasks-panel');
+        const btn = document.getElementById('show-tasks-btn');
+        if (panel) {
+            panel.style.display = 'flex';
+            btn.style.display = 'none';
+            fetchAllTasks();
+        }
+    }
+    
+    function closeTasksPanel() {
+        const panel = document.getElementById('background-tasks-panel');
+        const btn = document.getElementById('show-tasks-btn');
+        if (panel) panel.style.display = 'none';
+        if (btn) btn.style.display = 'block';
+    }
+    </script>
+    {% else %}
+    
+    {% if query %}
+    
+    {% if tenders and tenders|length > 0 %}
+    <div class="search-info">
+        <span>找到 <strong>{{ tenders|length }}</strong> 条相关结果</span>
+        {% if crawled %}
+        <span class="crawl-badge">实时爬取</span>
+        {% endif %}
+        <div class="export-btns">
+            <a href="{{ url_for('tenders.export_data', q=query, date_from=date_from, date_to=date_to, format='excel') }}" class="btn btn-sm">导出Excel</a>
+            <a href="{{ url_for('tenders.export_data', q=query, date_from=date_from, date_to=date_to, format='csv') }}" class="btn btn-sm">导出CSV</a>
+        </div>
+    </div>
+    
+    <div class="tender-list">
+        {% for tender in tenders %}
+        <div class="tender-card">
+            <div class="tender-header">
+                {% if tender.id %}
+                <a href="{{ url_for('tenders.tender_detail', tender_id=tender.id) }}" class="tender-title">
+                    {{ tender.title }}
+                </a>
+                {% else %}
+                <span class="tender-title">{{ tender.title }}</span>
+                {% endif %}
+                {% if tender.category %}
+                <span class="tender-category">{{ tender.category }}</span>
+                {% endif %}
+            </div>
+            <div class="tender-meta">
+                {% if tender.organization %}
+                <span class="meta-item">{{ tender.organization }}</span>
+                {% endif %}
+                {% if tender.publish_date %}
+                <span class="meta-item">{{ tender.publish_date }}</span>
+                {% endif %}
+                {% if tender.source_website %}
+                <span class="meta-item">{{ tender.source_website }}</span>
+                {% endif %}
+            </div>
+            {% if tender.summary %}
+            <p class="tender-summary">{{ tender.summary[:200] }}{% if tender.summary|length > 200 %}...{% endif %}</p>
+            {% endif %}
+            <div class="tender-footer">
+                {% if tender.source_url %}
+                <a href="{{ tender.source_url }}" target="_blank" class="source-link">查看原文</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if pagination and pagination.pages > 1 %}
+    <div class="pagination">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('tenders.search', q=query, page=pagination.prev_num, category=category, date_from=date_from, date_to=date_to, sort=sort) }}" class="page-link">上一页</a>
+        {% endif %}
+        
+        {% for page in range(1, pagination.pages + 1) %}
+        {% if page == pagination.page %}
+        <span class="page-link active">{{ page }}</span>
+        {% elif page == 1 or page == pagination.pages or (page >= pagination.page - 2 and page <= pagination.page + 2) %}
+        <a href="{{ url_for('tenders.search', q=query, page=page, category=category, date_from=date_from, date_to=date_to, sort=sort) }}" class="page-link">{{ page }}</a>
+        {% elif page == pagination.page - 3 or page == pagination.page + 3 %}
+        <span class="page-link">...</span>
+        {% endif %}
+        {% endfor %}
+        
+        {% if pagination.has_next %}
+        <a href="{{ url_for('tenders.search', q=query, page=pagination.next_num, category=category, date_from=date_from, date_to=date_to, sort=sort) }}" class="page-link">下一页</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+        <p>未找到相关招标信息，请尝试其他关键词</p>
+    </div>
+    {% endif %}
+    
+    {% endif %}
+    
+    {% endif %}
+</div>
+{% endblock %}

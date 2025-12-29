@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <h1>政府网站管理</h1>
+    </div>
+    
+    <div class="filter-bar">
+        <a href="{{ url_for('admin.manage_websites') }}" class="btn {% if not status %}btn-primary{% else %}btn-secondary{% endif %}">全部</a>
+        <a href="{{ url_for('admin.manage_websites', status='active') }}" class="btn {% if status == 'active' %}btn-primary{% else %}btn-secondary{% endif %}">有效</a>
+        <a href="{{ url_for('admin.manage_websites', status='inactive') }}" class="btn {% if status == 'inactive' %}btn-primary{% else %}btn-secondary{% endif %}">禁用</a>
+        <a href="{{ url_for('admin.upload_websites') }}" class="btn btn-success">+ 导入网站</a>
+    </div>
+    
+    {% if websites %}
+    <div class="data-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>名称</th>
+                    <th>网址</th>
+                    <th>类别</th>
+                    <th>地区</th>
+                    <th>级别</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for website in websites %}
+                <tr>
+                    <td>{{ website.id }}</td>
+                    <td>{{ website.name }}</td>
+                    <td>
+                        <a href="{{ website.website }}" target="_blank" rel="noopener noreferrer">
+                            {{ website.website[:40] }}{% if website.website|length > 40 %}...{% endif %}
+                        </a>
+                    </td>
+                    <td>{{ website.category or '-' }}</td>
+                    <td>{{ website.region or '-' }}</td>
+                    <td>{{ website.level or '-' }}</td>
+                    <td>
+                        <span class="status-badge status-{{ website.status }}">{{ website.status }}</span>
+                    </td>
+                    <td class="actions">
+                        <button type="button" class="btn-link toggle-status" data-id="{{ website.id }}" data-status="{{ website.status }}">
+                            {% if website.status == 'active' %}禁用{% else %}启用{% endif %}
+                        </button>
+                        <form action="{{ url_for('admin.delete_website', website_id=website.id) }}" method="POST" class="inline-form" onsubmit="return confirm('确定要删除吗？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn-link text-danger">删除</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    {% if pagination.pages > 1 %}
+    <div class="pagination">
+        {% for page in range(1, pagination.pages + 1) %}
+        {% if page == pagination.page %}
+        <span class="page-link active">{{ page }}</span>
+        {% else %}
+        <a href="{{ url_for('admin.manage_websites', page=page, status=status, category=category) }}" class="page-link">{{ page }}</a>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+        <p>暂无政府网站数据</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toggle-status').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var websiteId = this.dataset.id;
+            var newStatus = this.dataset.status === 'active' ? 'inactive' : 'active';
+            var self = this;
+            
+            fetch('/admin/websites/' + websiteId + '/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    var statusBadge = self.closest('tr').querySelector('.status-badge');
+                    statusBadge.textContent = data.status;
+                    statusBadge.className = 'status-badge status-' + data.status;
+                    self.textContent = data.status === 'active' ? '禁用' : '启用';
+                    self.dataset.status = data.status;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('操作失败');
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

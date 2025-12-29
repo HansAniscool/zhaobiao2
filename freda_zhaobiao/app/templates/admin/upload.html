@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <h1>导入数据</h1>
+    </div>
+    
+    <div class="upload-card">
+        <div class="upload-info">
+            <h3>支持的文件格式</h3>
+            <ul>
+                <li>Excel 文件 (.xlsx, .xls)</li>
+                <li>CSV 文件 (.csv)</li>
+            </ul>
+            <p>文件大小限制: 16MB</p>
+        </div>
+        
+        <form method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" name="file" id="fileInput" accept=".xlsx,.xls,.csv" required>
+                <div class="upload-prompt">
+                    <span class="upload-icon">📤</span>
+                    <p>点击或拖拽文件到此处上传</p>
+                    <p class="upload-hint">支持 Excel 和 CSV 格式</p>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">开始导入</button>
+            </div>
+        </form>
+        
+        <div class="upload-guide">
+            <h3>数据格式要求</h3>
+            <p>文件应包含以下列（支持自动识别）：</p>
+            <ul>
+                <li><strong>标题</strong> - 招标项目名称（必填）</li>
+                <li><strong>日期/发布日期</strong> - 招标发布日期</li>
+                <li><strong>单位/发布单位</strong> - 发布招标的单位名称</li>
+                <li><strong>摘要/简介</strong> - 招标信息摘要</li>
+                <li><strong>链接/网址</strong> - 原文链接</li>
+                <li><strong>类别/分类</strong> - 招标类别（工程/货物/服务）</li>
+            </ul>
+            
+            <h4>示例数据格式</h4>
+            <div class="example-table">
+                <table>
+                    <tr>
+                        <th>标题</th>
+                        <th>发布日期</th>
+                        <th>发布单位</th>
+                        <th>摘要</th>
+                    </tr>
+                    <tr>
+                        <td>XX项目招标公告</td>
+                        <td>2024-01-15</td>
+                        <td>XX市政府</td>
+                        <td>本项目采购XX设备...</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

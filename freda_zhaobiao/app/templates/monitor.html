@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}后台任务监控 - 招标信息网{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/monitor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="monitor-page">
+    <div class="monitor-header">
+        <div class="monitor-title">
+            <h1>🔄 后台爬虫任务监控</h1>
+            <p class="monitor-subtitle">实时监控所有爬虫任务的运行状态</p>
+        </div>
+        <div class="monitor-controls">
+            <div class="refresh-info">
+                <span class="refresh-status" id="refresh-status">● 实时刷新中</span>
+                <span class="last-update" id="last-update">最后更新: --:--:--</span>
+            </div>
+            <button onclick="fetchAllTasks()" class="btn btn-refresh">🔄 手动刷新</button>
+            <a href="{{ url_for('tenders.search') }}" class="btn btn-primary">返回搜索</a>
+        </div>
+    </div>
+
+    <div class="monitor-stats" id="monitor-stats">
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+                <div class="stat-value" id="total-tasks">0</div>
+                <div class="stat-label">总任务数</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-info">
+                <div class="stat-value" id="running-tasks">0</div>
+                <div class="stat-label">正在运行</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <div class="stat-value" id="completed-tasks">0</div>
+                <div class="stat-label">已完成</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">❌</div>
+            <div class="stat-info">
+                <div class="stat-value" id="failed-tasks">0</div>
+                <div class="stat-label">失败</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tasks-container">
+        <div class="tasks-header">
+            <h2>任务列表</h2>
+            <div class="filter-controls">
+                <select id="status-filter" class="filter-select" onchange="filterTasks()">
+                    <option value="all">全部状态</option>
+                    <option value="running">运行中</option>
+                    <option value="pending">等待中</option>
+                    <option value="completed">已完成</option>
+                    <option value="failed">失败</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="tasks-list" class="tasks-list">
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <div class="empty-text">暂无爬虫任务</div>
+                <div class="empty-hint">请前往 <a href="{{ url_for('tenders.search') }}">搜索页面</a> 启动新的搜索任务</div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<div id="preview-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>📋 爬取结果预览</h3>
+            <button onclick="closePreviewModal()" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body" id="preview-content">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>正在加载预览数据...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closePreviewModal()" class="btn btn-secondary">关闭</button>
+            <button id="modal-download-btn" onclick="downloadFromModal()" class="btn btn-download" style="display: none;">
+                <span class="btn-icon">📥</span>
+                <span class="btn-text">下载Excel</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTaskId = null;
+let pollingInterval = null;
+const POLLING_INTERVAL = 2000;
+
+function init() {
+    fetchAllTasks();
+    startPolling();
+}
+
+function startPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+    pollingInterval = setInterval(fetchAllTasks, POLLING_INTERVAL);
+}
+
+function stopPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+}
+
+function fetchAllTasks() {
+    fetch('/crawl/tasks')
+        .then(response => response.json())
+        .then(data => {
+            updateLastRefreshTime();
+            allTasksData = data.tasks || [];
+            updateTasksUI();
+            updateStats();
+        })
+        .catch(error => {
+            console.error('获取任务数据失败:', error);
+            document.getElementById('refresh-status').textContent = '● 刷新失败';
+            document.getElementById('refresh-status').style.color = '#ef4444';
+        });
+}
+
+function updateLastRefreshTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+    document.getElementById('last-update').textContent = '最后更新: ' + timeStr;
+    document.getElementById('refresh-status').textContent = '● 实时刷新中';
+    document.getElementById('refresh-status').style.color = '#22c55e';
+}
+
+function updateStats() {
+    const tasks = allTasksData;
+    const total = tasks.length;
+    const running = tasks.filter(t => t.status === 'running').length;
+    const completed = tasks.filter(t => t.status === 'completed').length;
+    const failed = tasks.filter(t => t.status === 'failed').length;
+
+    document.getElementById('total-tasks').textContent = total;
+    document.getElementById('running-tasks').textContent = running;
+    document.getElementById('completed-tasks').textContent = completed;
+    document.getElementById('failed-tasks').textContent = failed;
+}
+
+function filterTasks() {
+    updateTasksUI();
+}
+
+function updateTasksUI() {
+    const container = document.getElementById('tasks-list');
+    const statusFilter = document.getElementById('status-filter').value;
+    
+    let tasks = allTasksData;
+    
+    if (statusFilter !== 'all') {
+        tasks = tasks.filter(t => t.status === statusFilter);
+    }
+    
+    if (tasks.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <div class="empty-text">暂无符合条件的任务</div>
+                <div class="empty-hint">${statusFilter === 'all' ? '请前往 <a href="/search">搜索页面</a> 启动新的搜索任务' : '尝试选择其他状态筛选'}</div>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    tasks.sort((a, b) => {
+        const statusOrder = { 'running': 0, 'pending': 1, 'completed': 2, 'failed': 3 };
+        return (statusOrder[a.status] || 4) - (statusOrder[b.status] || 4);
+    });
+
+    tasks.forEach(task => {
+        const statusClass = task.status || 'pending';
+        const statusText = {
+            'pending': '等待中',
+            'running': '爬取中',
+            'completed': '已完成',
+            'failed': '失败'
+        }[statusClass] || statusClass;
+
+        const percentage = task.progress_percentage || 0;
+        const isRunning = statusClass === 'running';
+
+        html += `
+            <div class="task-card ${statusClass}">
+                <div class="task-card-header">
+                    <div class="task-id-info">
+                        <span class="task-id">${task.task_id}</span>
+                        <span class="task-status-badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="task-time-info">
+                        ${task.elapsed_time ? `<span class="elapsed-time">⏱️ ${task.elapsed_time}</span>` : ''}
+                    </div>
+                </div>
+                
+                ${task.message ? `<div class="task-message">${task.message}</div>` : ''}
+                
+                <div class="task-progress-section">
+                    <div class="progress-header-row">
+                        <span class="progress-label">总体进度</span>
+                        <span class="progress-percentage">${percentage}%</span>
+                    </div>
+                    <div class="progress-bar-large">
+                        <div class="progress-fill-large ${isRunning ? 'animate' : ''}" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="progress-stats-row">
+                        <span class="progress-count">${task.completed || 0} / ${task.total || 0} 个网站</span>
+                        ${task.status === 'completed' ? `<span class="estimated-remaining completed-text">已完成</span>` : (task.estimated_remaining ? `<span class="estimated-remaining">预计剩余: ${task.estimated_remaining}</span>` : '')}
+                    </div>
+                    <div class="task-actions">
+                        <button onclick="previewTask('${task.task_id}')" class="btn btn-preview ${task.status !== 'completed' ? 'btn-disabled' : ''}" ${task.status !== 'completed' ? 'disabled' : ''}>
+                            <span class="btn-icon">👁️</span>
+                            <span class="btn-text">预览</span>
+                        </button>
+                        <button onclick="downloadTask('${task.task_id}')" class="btn btn-download" ${task.results_count === 0 ? 'disabled' : ''}>
+                            <span class="btn-icon">📥</span>
+                            <span class="btn-text">下载</span>
+                        </button>
+                    </div>
+                </div>
+                
+                ${task.current_website ? `
+                    <div class="current-website-section">
+                        <div class="current-website-header">
+                            <span class="globe-icon">🌐</span>
+                            <span class="current-website-name">${task.current_website.name || '未知网站'}</span>
+                        </div>
+                        <div class="current-website-details">
+                            <span class="website-progress">进度: ${task.current_website.progress || 0}/${task.current_website.total || 0}</span>
+                            ${task.current_website.url ? `<span class="website-url-text">${task.current_website.url}</span>` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${task.websites && task.websites.length > 0 ? `
+                    <div class="websites-summary">
+                        <div class="websites-toggle" onclick="toggleWebsites('${task.task_id}')">
+                            <span>📋 查看详情</span>
+                            <span class="toggle-arrow">▼</span>
+                        </div>
+                        <div id="websites-${task.task_id}" class="websites-detail" style="display: none;">
+                            <table class="websites-table">
+                                <thead>
+                                    <tr>
+                                        <th>状态</th>
+                                        <th>网站名称</th>
+                                        <th>结果数</th>
+                                        <th>耗时</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${task.websites.map(ws => `
+                                        <tr class="${ws.status}">
+                                            <td>${getStatusIcon(ws.status)}</td>
+                                            <td class="website-name-cell">${ws.name || '未知'}</td>
+                                            <td>${ws.found || 0} 条</td>
+                                            <td>${ws.duration ? ws.duration + '秒' : '--'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="task-footer">
+                    ${task.start_time ? `<span class="start-time">开始: ${formatTime(task.start_time)}</span>` : ''}
+                    ${task.estimated_completion ? `<span class="completion-time">预计完成: ${task.estimated_completion}</span>` : ''}
+                    ${task.results_count !== undefined ? `<span class="results-count">📊 结果: ${task.results_count} 条</span>` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function getStatusIcon(status) {
+    const icons = {
+        'pending': '⏳',
+        'running': '🔄',
+        'completed': '✅',
+        'failed': '❌'
+    };
+    return icons[status] || '❓';
+}
+
+function formatTime(isoTime) {
+    try {
+        const date = new Date(isoTime);
+        return date.toLocaleTimeString('zh-CN', { hour12: false });
+    } catch {
+        return isoTime;
+    }
+}
+
+function toggleWebsites(taskId) {
+    const detail = document.getElementById('websites-' + taskId);
+    const toggle = detail.previousElementSibling.querySelector('.toggle-arrow');
+    if (detail.style.display === 'none') {
+        detail.style.display = 'block';
+        toggle.style.transform = 'rotate(180deg)';
+    } else {
+        detail.style.display = 'none';
+        toggle.style.transform = 'rotate(0deg)';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+function previewTask(taskId) {
+    currentTaskId = taskId;
+    const modal = document.getElementById('preview-modal');
+    const content = document.getElementById('preview-content');
+    const downloadBtn = document.getElementById('modal-download-btn');
+    
+    modal.style.display = 'block';
+    content.innerHTML = `
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>正在加载预览数据...</p>
+        </div>
+    `;
+    downloadBtn.style.display = 'none';
+    
+    fetch(`/crawl/preview/${taskId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.has_results) {
+                content.innerHTML = data.html;
+                downloadBtn.style.display = 'inline-flex';
+            } else {
+                content.innerHTML = `
+                    <div class="preview-empty">
+                        <div class="empty-icon">📭</div>
+                        <p>暂无爬取结果</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('预览加载失败:', error);
+            content.innerHTML = `
+                <div class="preview-error">
+                    <div class="error-icon">❌</div>
+                    <p>网络错误，加载失败</p>
+                </div>
+            `;
+        });
+}
+
+function downloadTask(taskId) {
+    const link = document.createElement('a');
+    link.href = `/crawl/download/${taskId}`;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function downloadFromModal() {
+    if (currentTaskId) {
+        downloadTask(currentTaskId);
+    }
+}
+
+function closePreviewModal() {
+    document.getElementById('preview-modal').style.display = 'none';
+    currentTaskId = null;
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('preview-modal');
+    if (event.target === modal) {
+        closePreviewModal();
+    }
+}
+</script>
+{% endblock %}
