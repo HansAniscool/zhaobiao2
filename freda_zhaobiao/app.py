@@ -128,7 +128,7 @@ with app.app_context():
         logger_service.info('Default admin account created: admin / admin123', module='init')
         print('默认管理员账号已创建: admin / admin123')
 
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('DEBUG', 'False').lower() == 'true'
     
     logger_service.info(f'Starting application on port {port}', module='app')
